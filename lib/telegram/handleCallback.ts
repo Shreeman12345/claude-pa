@@ -158,7 +158,9 @@ export async function handleCallbackQuery(callbackQuery: any): Promise<void> {
       await editMessageText(chatId, messageId, "Filed as Task 📌");
     } else {
       const parsed = pending.parsed as ParsedScheduleItem;
-      const item: ParsedScheduleItem = { ...parsed, kind: "reminder" };
+      // This flow only ever produces a plain reminder (the other button files
+      // it as a Task instead), so there's no lead-time concept here.
+      const item: ParsedScheduleItem = { ...parsed, kind: "reminder", remind_before_days: null };
 
       await supabaseAdmin.from("schedule_items").insert({
         kind: item.kind,
@@ -171,6 +173,7 @@ export async function handleCallbackQuery(callbackQuery: any): Promise<void> {
         recurrence_days: item.recurrence_days,
         subject: item.subject,
         active: true,
+        remind_before_days: item.remind_before_days,
       });
 
       await editMessageText(chatId, messageId, formatScheduleConfirmation(item));

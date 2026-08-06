@@ -19,6 +19,7 @@ async function insertScheduleItem(item: ParsedScheduleItem): Promise<void> {
     recurrence_days: item.recurrence_days,
     subject: item.subject,
     active: true,
+    remind_before_days: item.remind_before_days,
   });
 }
 
@@ -30,13 +31,13 @@ export async function handleScheduleMessage(message: any): Promise<boolean> {
 
   const explicitReminder = hasExplicitReminderPhrasing(text);
 
+  // explicitReminder only decides whether to bypass the ambiguity buttons
+  // below -- it must not override a kind parse() already inferred (e.g.
+  // "due Friday, remind me a week before" is correctly kind: 'deadline';
+  // forcing it to 'reminder' here would have discarded that).
   if (parsed.time_specificity === "specific" || explicitReminder) {
-    const finalItem: ParsedScheduleItem = explicitReminder
-      ? { ...parsed, kind: "reminder" }
-      : parsed;
-
-    await insertScheduleItem(finalItem);
-    await sendMessage(message.chat.id, formatScheduleConfirmation(finalItem));
+    await insertScheduleItem(parsed);
+    await sendMessage(message.chat.id, formatScheduleConfirmation(parsed));
     return true;
   }
 

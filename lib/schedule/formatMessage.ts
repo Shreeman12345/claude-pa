@@ -33,6 +33,14 @@ export function formatScheduleConfirmation(item: {
   return `${emoji} ${label} — ${item.title}${locationPart} · ${dateStr}`;
 }
 
+/** Early "heads up" nudge, distinct from the due-date firing itself. */
+export function formatLeadTimeMessage(item: { title: string; starts_at: string }, daysRemaining: number): string {
+  const days = Math.max(1, daysRemaining);
+  const plural = days === 1 ? "day" : "days";
+  const dueLabel = dayLabel(new Date(item.starts_at));
+  return `📌 Heads up — ${item.title} due in ${days} ${plural} (${dueLabel}). Time to start prepping.`;
+}
+
 export function formatFireMessage(item: {
   kind: ScheduleKind;
   title: string;

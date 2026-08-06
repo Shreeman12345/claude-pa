@@ -17,6 +17,8 @@ export interface ParsedScheduleItem {
   recurrence_days: string | null;
   subject: string | null;
   time_specificity: TimeSpecificity;
+  /** Deadlines only. null means fire at starts_at itself (unchanged behaviour). */
+  remind_before_days: number | null;
 }
 
 const DAY_NAMES: Record<string, string> = {
@@ -42,8 +44,11 @@ export function hasExplicitReminderPhrasing(text: string): boolean {
 
 function inferKind(text: string): ScheduleKind {
   const lower = text.toLowerCase();
-  if (hasExplicitReminderPhrasing(text)) return "reminder";
+  // "due"/"deadline" wins even when the message also says "remind me" --
+  // "due Friday, remind me a week before" is a deadline with a lead-time
+  // request, not a plain reminder.
   if (/\bdue\b|\bdeadline\b/.test(lower)) return "deadline";
+  if (hasExplicitReminderPhrasing(text)) return "reminder";
   if (/\bclass\b|\blecture\b|\blab\b/.test(lower)) return "class";
   if (/\bat\b|\bwith\b|\bmeeting\b|\bhangout\b|\bdinner\b|\blunch\b|\bcall\b|\bparty\b/.test(lower)) {
     return "event";
@@ -91,10 +96,42 @@ function inferSubject(text: string): string | null {
   return found ?? null;
 }
 
+/**
+ * Deadline lead-time: "remind me a week before", "remind me 3 days before",
+ * "give me a heads up 5 days early", or bare "remind me before" (defaults
+ * to 7, per spec). Tried most-specific first so a numbered phrase never
+ * falls through to the bare-7 rule.
+ */
+function extractLeadTime(text: string): { days: number | null; matchedPhrase: string | null } {
+  let m = text.match(
+    /\bremind(?:er)?\s+me\s+(?:(\d+)\s*days?|(?:a|one)\s+week)\s*(?:before|early|ahead|in advance)?\b/i
+  );
+  if (m) return { days: m[1] ? parseInt(m[1], 10) : 7, matchedPhrase: m[0] };
+
+  m = text.match(
+    /\b(?:give me a )?heads[- ]up\s+(\d+)\s*days?\s*(?:before|early|ahead|in advance)?\b/i
+  );
+  if (m) return { days: parseInt(m[1], 10), matchedPhrase: m[0] };
+
+  m = text.match(/\b(\d+)\s*days?\s*(?:before|early|ahead|in advance)\b/i);
+  if (m) return { days: parseInt(m[1], 10), matchedPhrase: m[0] };
+
+  m = text.match(/\b(?:a|one)\s+week\s*(?:before|early|ahead|in advance)\b/i);
+  if (m) return { days: 7, matchedPhrase: m[0] };
+
+  m = text.match(/\bremind(?:er)?\s+me\s+before\b/i);
+  if (m) return { days: 7, matchedPhrase: m[0] };
+
+  return { days: null, matchedPhrase: null };
+}
+
 function inferTitle(strippedText: string, kind: ScheduleKind): string {
   let title = strippedText.trim();
   title = title.replace(/^(remind me to|reminder to|remind me|due|deadline for|deadline)\b[:\-]?\s*/i, "");
   title = title.replace(/\s{2,}/g, " ").trim().replace(/^[,.\-–]+|[,.\-–]+$/g, "").trim();
+  // "Physics lab report due" left over after the date and lead-time phrase
+  // are stripped out from the middle of the sentence.
+  title = title.replace(/\bdue\s*$/i, "").trim().replace(/^[,.\-–]+|[,.\-–]+$/g, "").trim();
 
   if (title.length > 0) return title;
 
@@ -141,11 +178,15 @@ export async function parseScheduleMessage(text: string): Promise<ParsedSchedule
     const endsAt = result.end ? result.end.date() : null;
     const kind = inferKind(text);
     const { recurrence, recurrence_days } = inferRecurrence(text);
+    const leadTime = kind === "deadline" ? extractLeadTime(text) : { days: null, matchedPhrase: null };
 
     const withoutDate = text.replace(result.text, "");
+    const withoutLeadTime = leadTime.matchedPhrase
+      ? withoutDate.replace(leadTime.matchedPhrase, "")
+      : withoutDate;
     const { location, matchedPhrase } =
-      kind === "event" ? inferLocation(withoutDate) : { location: null, matchedPhrase: null };
-    const strippedForTitle = matchedPhrase ? withoutDate.replace(matchedPhrase, "") : withoutDate;
+      kind === "event" ? inferLocation(withoutLeadTime) : { location: null, matchedPhrase: null };
+    const strippedForTitle = matchedPhrase ? withoutLeadTime.replace(matchedPhrase, "") : withoutLeadTime;
 
     return {
       kind,
@@ -157,6 +198,7 @@ export async function parseScheduleMessage(text: string): Promise<ParsedSchedule
       recurrence_days,
       subject: inferSubject(text),
       time_specificity: chronoTimeSpecificity(result.text),
+      remind_before_days: leadTime.days,
     };
   }
 
@@ -180,5 +222,9 @@ export async function parseScheduleMessage(text: string): Promise<ParsedSchedule
     recurrence_days: fallback.recurrence_days,
     subject: fallback.subject,
     time_specificity: fallback.time_specificity,
+    // The Claude fallback only runs when chrono finds no date at all; lead-time
+    // extraction isn't wired into that prompt yet, so this path always defaults
+    // to firing at starts_at.
+    remind_before_days: null,
   };
 }
