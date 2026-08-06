@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { classify } from "@/lib/router/classify";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,22 +21,17 @@ export async function POST(req: NextRequest) {
     return new NextResponse(null, { status: 200 });
   }
 
-  if (message.voice) {
-    const raw_text = await transcribeVoice(message.voice.file_id);
+  const source = message.voice ? "telegram_voice" : "telegram_text";
+  const raw_text = message.voice
+    ? await transcribeVoice(message.voice.file_id)
+    : message.text ?? null;
 
-    await supabase.from("raw_captures").insert({
-      source: "telegram_voice",
-      raw_text,
-      routed_to: null,
-      routed_id: null,
-    });
-
-    return new NextResponse(null, { status: 200 });
-  }
+  const classification = raw_text ? await classify(raw_text) : null;
 
   await supabase.from("raw_captures").insert({
-    source: "telegram_text",
-    raw_text: message.text ?? null,
+    source,
+    raw_text,
+    classification,
     routed_to: null,
     routed_id: null,
   });
