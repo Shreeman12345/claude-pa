@@ -27,15 +27,19 @@ async function callTelegram(
   }
 }
 
+export type ParseMode = "Markdown" | "MarkdownV2" | "HTML";
+
 export async function sendMessage(
   chatId: number | string,
   text: string,
-  replyMarkup?: InlineKeyboard
+  replyMarkup?: InlineKeyboard,
+  parseMode?: ParseMode
 ): Promise<{ message_id: number } | null> {
   return callTelegram("sendMessage", {
     chat_id: chatId,
     text,
     reply_markup: replyMarkup,
+    parse_mode: parseMode,
   });
 }
 
