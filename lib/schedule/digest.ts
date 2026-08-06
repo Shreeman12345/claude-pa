@@ -8,7 +8,20 @@ import {
   startOfDay,
   formatDateOnly,
   daysUntil,
+  localParts,
 } from "@/lib/schedule/datetime";
+import { HABITS } from "@/lib/habits/panel";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Monday..Sunday of the current week, in the user's timezone. */
+function currentWeekRange(): { mondayKey: string; sundayKey: string } {
+  const { weekday } = localParts(new Date());
+  const daysSinceMonday = (weekday + 6) % 7; // Sun=0 -> 6, Mon=1 -> 0, ... Sat=6 -> 5
+  const monday = new Date(startOfToday().getTime() - daysSinceMonday * DAY_MS);
+  const sunday = new Date(monday.getTime() + 6 * DAY_MS);
+  return { mondayKey: dayKey(monday), sundayKey: dayKey(sunday) };
+}
 
 const KIND_EMOJI: Record<ScheduleKind, string> = {
   class: "🎓",
@@ -52,7 +65,9 @@ export async function buildWeeklyDigest(): Promise<string> {
   const examWindowEnd = new Date(windowStart.getTime() + 14 * 24 * 60 * 60 * 1000);
   const todayKey = dayKey(new Date());
 
-  const [scheduleRes, tasksRes, examsRes] = await Promise.all([
+  const { mondayKey, sundayKey } = currentWeekRange();
+
+  const [scheduleRes, tasksRes, examsRes, habitsRes] = await Promise.all([
     supabaseAdmin
       .from("schedule_items")
       .select("kind, title, location, starts_at")
@@ -72,18 +87,28 @@ export async function buildWeeklyDigest(): Promise<string> {
       .gte("exam_date", todayKey)
       .lte("exam_date", dayKey(examWindowEnd))
       .order("exam_date", { ascending: true }),
+    supabaseAdmin
+      .from("habit_logs")
+      .select("done")
+      .gte("log_date", mondayKey)
+      .lte("log_date", sundayKey)
+      .eq("done", true),
   ]);
 
   if (scheduleRes.error) console.error("Digest: schedule_items query failed:", scheduleRes.error);
   if (tasksRes.error) console.error("Digest: tasks query failed:", tasksRes.error);
   if (examsRes.error) console.error("Digest: exams query failed:", examsRes.error);
+  if (habitsRes.error) console.error("Digest: habit_logs query failed:", habitsRes.error);
 
   const scheduleItems = scheduleRes.data ?? [];
   const tasks = tasksRes.data ?? [];
   const exams = examsRes.data ?? [];
+  const habitsDone = habitsRes.data?.length ?? 0;
+  const habitsPossible = HABITS.length * 7;
+  const habitsLine = `🔥 Habits this week: ${habitsDone}/${habitsPossible}`;
 
   if (scheduleItems.length === 0 && tasks.length === 0 && exams.length === 0) {
-    return "Nothing scheduled this week 🎉";
+    return `Nothing scheduled this week 🎉\n\n${habitsLine}`;
   }
 
   const sections: string[] = ["📅 *This week*"];
@@ -116,6 +141,8 @@ export async function buildWeeklyDigest(): Promise<string> {
     });
     sections.push(["🎓 *Exams coming up*", ...lines].join("\n"));
   }
+
+  sections.push(habitsLine);
 
   return sections.join("\n\n");
 }

@@ -11,6 +11,7 @@ import { routeExamInfo } from "@/lib/router/routeExam";
 import { handleScheduleMessage } from "@/lib/schedule/routeSchedule";
 import { isDigestRequest } from "@/lib/schedule/detectDigestRequest";
 import { buildWeeklyDigest } from "@/lib/schedule/digest";
+import { buildHabitPanel } from "@/lib/habits/panel";
 
 export async function POST(req: NextRequest) {
   const secretHeader = req.headers.get("x-telegram-bot-api-secret-token");
@@ -42,7 +43,13 @@ export async function POST(req: NextRequest) {
   }
 
   if (message.text) {
-    // Read-only and model-free, so it runs before anything that costs a call.
+    // Read-only and model-free, so these run before anything that costs a call.
+    if (/^\s*\/habits\b/i.test(message.text)) {
+      const panel = await buildHabitPanel();
+      await sendMessage(message.chat.id, panel.text, panel.keyboard, "Markdown");
+      return new NextResponse(null, { status: 200 });
+    }
+
     if (isDigestRequest(message.text)) {
       const digest = await buildWeeklyDigest();
       await sendMessage(message.chat.id, digest, undefined, "Markdown");

@@ -47,13 +47,15 @@ export async function editMessageText(
   chatId: number | string,
   messageId: number | string,
   text: string,
-  replyMarkup?: InlineKeyboard
+  replyMarkup?: InlineKeyboard,
+  parseMode?: ParseMode
 ): Promise<any | null> {
   return callTelegram("editMessageText", {
     chat_id: chatId,
     message_id: messageId,
     text,
     reply_markup: replyMarkup ?? { inline_keyboard: [] },
+    parse_mode: parseMode,
   });
 }
 

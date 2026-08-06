@@ -9,6 +9,7 @@ import { fileDocument } from "@/lib/router/routeDocument";
 import { subjectKeyboard, docTypeKeyboard } from "@/lib/telegram/documentKeyboards";
 import { formatScheduleConfirmation } from "@/lib/schedule/formatMessage";
 import { ParsedScheduleItem } from "@/lib/schedule/parse";
+import { toggleHabit, buildHabitPanel, Habit } from "@/lib/habits/panel";
 
 const KIND_LABELS: Record<CaptureKind, string> = {
   task: "Task",
@@ -176,6 +177,16 @@ export async function handleCallbackQuery(callbackQuery: any): Promise<void> {
     }
 
     await supabaseAdmin.from("pending_schedule").delete().eq("id", pendingId);
+    return;
+  }
+
+  if (action === "habit") {
+    const habit = captureId as Habit;
+    const logDate = kind;
+
+    await toggleHabit(habit, logDate);
+    const panel = await buildHabitPanel(logDate);
+    await editMessageText(chatId, messageId, panel.text, panel.keyboard, "Markdown");
     return;
   }
 }
