@@ -13,6 +13,7 @@ const scheduleFallbackSchema = z.object({
   recurrence_days: z.string().nullable(),
   subject: z.enum(SUBJECTS).nullable(),
   time_specificity: z.enum(["specific", "vague", "none"]),
+  remind_before_days: z.number().int().nullable(),
 });
 
 export type ScheduleFallback = z.infer<typeof scheduleFallbackSchema>;
@@ -28,6 +29,7 @@ const FALLBACK: ScheduleFallback = {
   recurrence_days: null,
   subject: null,
   time_specificity: "none",
+  remind_before_days: null,
 };
 
 export async function classifyScheduleFallback(text: string): Promise<ScheduleFallback> {
@@ -51,17 +53,19 @@ Return JSON only:
   "recurrence": "daily" | "weekly" | "monthly" | "yearly" | null,
   "recurrence_days": string | null,
   "subject": "Railway" | "DSP" | "MOOC" | "LIC" | "Microwave" | "EngEcon" | "Entrepreneurship" | null,
-  "time_specificity": "specific" | "vague" | "none"
+  "time_specificity": "specific" | "vague" | "none",
+  "remind_before_days": number | null
 }
 
 Rules:
 - is_schedule_item is true only if there's a clear thing to schedule.
-- kind: "reminder" for general reminders ("remind me to..."), "deadline" for something due, "class" for a class session, "event" for meetings/social/other time-bound things. Default to "reminder" if ambiguous.
-- title should be short and specific (what to do / what it's about), never include the raw date phrase.
+- kind: "reminder" for general reminders ("remind me to..."), "deadline" for something due, "class" for a class session, "event" for meetings/social/other time-bound things. Default to "reminder" if ambiguous. A message can say "remind me" about a deadline ("due Friday, remind me a week before") -- that's still kind "deadline" with a lead-time request, not kind "reminder".
+- title should be short and specific (what to do / what it's about), never include the raw date phrase or the lead-time phrase (e.g. "remind me a week before").
 - time_specificity is "specific" if the message names an actual clock time or a specific day (e.g. "3pm", "monday", "tomorrow at 5", "the 12th"). It is "vague" if only a loose reference is given (e.g. "next week", "soon", "this month"). It is "none" if there's no time reference at all.
 - starts_at must still be your best-resolved absolute UTC timestamp even when time_specificity is "vague" (e.g. resolve "next week" to a reasonable date next week) — pick a sensible default time of day if none is stated. Only leave starts_at null when time_specificity is "none".
 - recurrence_days, if the message implies specific weekdays (e.g. "every Monday and Wednesday"), should be a lowercase comma-separated list using 3-letter abbreviations, e.g. "mon,wed". Otherwise null.
 - subject should only be set if the message clearly references one of the listed subjects.
+- remind_before_days only applies when kind is "deadline". Set it to the number of days if the message asks for an early heads-up: a specific count ("3 days before", "5 days early") uses that number; "a week before" or "one week before" means 7; bare "remind me before" with no number stated also defaults to 7. If no lead-time is mentioned at all, or kind isn't "deadline", this is null.
 - Never invent a title, location, or date that wasn't stated or clearly implied.`;
 
   try {

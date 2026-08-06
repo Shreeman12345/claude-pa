@@ -163,11 +163,22 @@ function chronoTimeSpecificity(matchedText: string): TimeSpecificity {
 
 export async function parseScheduleMessage(text: string): Promise<ParsedScheduleItem | null> {
   const now = new Date();
+  const kind = inferKind(text);
+  const leadTime = kind === "deadline" ? extractLeadTime(text) : { days: null, matchedPhrase: null };
+
+  // Strip the lead-time phrase before chrono ever sees the text. chrono treats
+  // a bare "4 days before" as a complete, self-contained date expression --
+  // resolving it to 4 days *before now*, i.e. the past -- so a deadline whose
+  // only chrono-visible fragment is its own lead-time phrase would otherwise
+  // get its starts_at hijacked by that phrase instead of the real due date
+  // (or fall through to Claude with a wrong date already picked).
+  const textForChrono = leadTime.matchedPhrase ? text.replace(leadTime.matchedPhrase, "") : text;
+
   // Without an explicit timezone reference chrono resolves clock times against
   // the server clock, which is UTC on Vercel -- "1am" would be stored as 1am
   // UTC, i.e. 6:30am for the user.
   const results = chrono.parse(
-    text,
+    textForChrono,
     { instant: now, timezone: UTC_OFFSET_MINUTES },
     { forwardDate: true }
   );
@@ -176,17 +187,12 @@ export async function parseScheduleMessage(text: string): Promise<ParsedSchedule
     const result = results[0];
     const startsAt = result.start.date();
     const endsAt = result.end ? result.end.date() : null;
-    const kind = inferKind(text);
     const { recurrence, recurrence_days } = inferRecurrence(text);
-    const leadTime = kind === "deadline" ? extractLeadTime(text) : { days: null, matchedPhrase: null };
 
-    const withoutDate = text.replace(result.text, "");
-    const withoutLeadTime = leadTime.matchedPhrase
-      ? withoutDate.replace(leadTime.matchedPhrase, "")
-      : withoutDate;
+    const withoutDate = textForChrono.replace(result.text, "");
     const { location, matchedPhrase } =
-      kind === "event" ? inferLocation(withoutLeadTime) : { location: null, matchedPhrase: null };
-    const strippedForTitle = matchedPhrase ? withoutLeadTime.replace(matchedPhrase, "") : withoutLeadTime;
+      kind === "event" ? inferLocation(withoutDate) : { location: null, matchedPhrase: null };
+    const strippedForTitle = matchedPhrase ? withoutDate.replace(matchedPhrase, "") : withoutDate;
 
     return {
       kind,
@@ -222,9 +228,6 @@ export async function parseScheduleMessage(text: string): Promise<ParsedSchedule
     recurrence_days: fallback.recurrence_days,
     subject: fallback.subject,
     time_specificity: fallback.time_specificity,
-    // The Claude fallback only runs when chrono finds no date at all; lead-time
-    // extraction isn't wired into that prompt yet, so this path always defaults
-    // to firing at starts_at.
-    remind_before_days: null,
+    remind_before_days: fallback.remind_before_days,
   };
 }
