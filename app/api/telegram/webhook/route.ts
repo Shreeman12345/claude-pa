@@ -8,6 +8,7 @@ import { handleDocumentMessage } from "@/lib/telegram/handleDocument";
 import { downloadTelegramFile } from "@/lib/telegram/downloadFile";
 import { classifyExamInfo } from "@/lib/router/classifyExam";
 import { routeExamInfo } from "@/lib/router/routeExam";
+import { handleScheduleMessage } from "@/lib/schedule/routeSchedule";
 
 export async function POST(req: NextRequest) {
   const secretHeader = req.headers.get("x-telegram-bot-api-secret-token");
@@ -43,6 +44,11 @@ export async function POST(req: NextRequest) {
     if (examInfo.is_exam_info && examInfo.subject) {
       const confirmation = await routeExamInfo(examInfo);
       await sendMessage(message.chat.id, confirmation);
+      return new NextResponse(null, { status: 200 });
+    }
+
+    const handledAsSchedule = await handleScheduleMessage(message);
+    if (handledAsSchedule) {
       return new NextResponse(null, { status: 200 });
     }
   }

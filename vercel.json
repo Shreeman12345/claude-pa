@@ -1,6 +1,7 @@
 {
   "framework": "nextjs",
   "crons": [
-    { "path": "/api/study/daily-check", "schedule": "30 3 * * *" }
+    { "path": "/api/study/daily-check", "schedule": "30 3 * * *" },
+    { "path": "/api/schedule/fire", "schedule": "*/15 * * * *" }
   ]
 }

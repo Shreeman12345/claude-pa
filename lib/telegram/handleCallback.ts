@@ -7,6 +7,8 @@ import {
 } from "@/lib/router/routeCapture";
 import { fileDocument } from "@/lib/router/routeDocument";
 import { subjectKeyboard, docTypeKeyboard } from "@/lib/telegram/documentKeyboards";
+import { formatScheduleConfirmation } from "@/lib/schedule/formatMessage";
+import { ParsedScheduleItem } from "@/lib/schedule/parse";
 
 const KIND_LABELS: Record<CaptureKind, string> = {
   task: "Task",
@@ -134,6 +136,46 @@ export async function handleCallbackQuery(callbackQuery: any): Promise<void> {
         docTypeKeyboard(pendingId)
       );
     }
+    return;
+  }
+
+  if (action === "schedpick") {
+    const pendingId = captureId;
+    const choice = kind;
+
+    const { data: pending } = await supabaseAdmin
+      .from("pending_schedule")
+      .select("*")
+      .eq("id", pendingId)
+      .single();
+    if (!pending) return;
+
+    if (choice === "task") {
+      await supabaseAdmin
+        .from("tasks")
+        .insert({ title: pending.raw_text, urgency: "week" });
+      await editMessageText(chatId, messageId, "Filed as Task 📌");
+    } else {
+      const parsed = pending.parsed as ParsedScheduleItem;
+      const item: ParsedScheduleItem = { ...parsed, kind: "reminder" };
+
+      await supabaseAdmin.from("schedule_items").insert({
+        kind: item.kind,
+        title: item.title,
+        location: item.location,
+        notes: null,
+        starts_at: item.starts_at,
+        ends_at: item.ends_at,
+        recurrence: item.recurrence,
+        recurrence_days: item.recurrence_days,
+        subject: item.subject,
+        active: true,
+      });
+
+      await editMessageText(chatId, messageId, formatScheduleConfirmation(item));
+    }
+
+    await supabaseAdmin.from("pending_schedule").delete().eq("id", pendingId);
     return;
   }
 }
