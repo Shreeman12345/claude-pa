@@ -1,4 +1,5 @@
 import { ScheduleKind } from "@/lib/schedule/parse";
+import { dayLabel, timeLabel } from "@/lib/schedule/datetime";
 
 const KIND_EMOJI: Record<ScheduleKind, string> = {
   class: "🎓",
@@ -16,19 +17,7 @@ const KIND_LABEL: Record<ScheduleKind, string> = {
 
 function formatDateTime(iso: string, includeTime: boolean): string {
   const date = new Date(iso);
-  const datePart = date.toLocaleDateString("en-US", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-  if (!includeTime) return datePart;
-
-  const timePart = date.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return `${datePart}, ${timePart}`;
+  return includeTime ? `${dayLabel(date)}, ${timeLabel(date)}` : dayLabel(date);
 }
 
 export function formatScheduleConfirmation(item: {
