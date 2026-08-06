@@ -4,6 +4,8 @@ import { classify } from "@/lib/router/classify";
 import { routeCapture, summarizeFields } from "@/lib/router/routeCapture";
 import { sendMessage } from "@/lib/telegram/api";
 import { handleCallbackQuery } from "@/lib/telegram/handleCallback";
+import { handleDocumentMessage } from "@/lib/telegram/handleDocument";
+import { downloadTelegramFile } from "@/lib/telegram/downloadFile";
 
 export async function POST(req: NextRequest) {
   const secretHeader = req.headers.get("x-telegram-bot-api-secret-token");
@@ -26,6 +28,11 @@ export async function POST(req: NextRequest) {
 
   const senderId = message?.from?.id;
   if (String(senderId) !== process.env.TELEGRAM_USER_ID) {
+    return new NextResponse(null, { status: 200 });
+  }
+
+  if (message.document || message.photo) {
+    await handleDocumentMessage(message);
     return new NextResponse(null, { status: 200 });
   }
 
@@ -78,24 +85,7 @@ export async function POST(req: NextRequest) {
 
 async function transcribeVoice(fileId: string): Promise<string | null> {
   try {
-    const botToken = process.env.TELEGRAM_BOT_TOKEN;
-
-    const getFileRes = await fetch(
-      `https://api.telegram.org/bot${botToken}/getFile?file_id=${fileId}`
-    );
-    const getFileData = await getFileRes.json();
-    if (!getFileData.ok) {
-      throw new Error(`getFile failed: ${JSON.stringify(getFileData)}`);
-    }
-    const filePath = getFileData.result.file_path;
-
-    const fileRes = await fetch(
-      `https://api.telegram.org/file/bot${botToken}/${filePath}`
-    );
-    if (!fileRes.ok) {
-      throw new Error(`File download failed: ${fileRes.status}`);
-    }
-    const audioBlob = await fileRes.blob();
+    const audioBlob = await downloadTelegramFile(fileId);
 
     const formData = new FormData();
     formData.append("file", audioBlob, "voice.ogg");

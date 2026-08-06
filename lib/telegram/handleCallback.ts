@@ -5,6 +5,8 @@ import {
   defaultFieldsFromRawText,
   CaptureKind,
 } from "@/lib/router/routeCapture";
+import { fileDocument } from "@/lib/router/routeDocument";
+import { subjectKeyboard, docTypeKeyboard } from "@/lib/telegram/documentKeyboards";
 
 const KIND_LABELS: Record<CaptureKind, string> = {
   task: "Task",
@@ -71,6 +73,67 @@ export async function handleCallbackQuery(callbackQuery: any): Promise<void> {
       messageId,
       `Filed as ${KIND_LABELS[pickedKind]} ✅`
     );
+    return;
+  }
+
+  if (action === "docsubj" || action === "doctype") {
+    const pendingId = captureId;
+    const value = kind;
+
+    const { data: pending } = await supabaseAdmin
+      .from("pending_documents")
+      .select("*")
+      .eq("id", pendingId)
+      .single();
+    if (!pending) return;
+
+    const field = action === "docsubj" ? "subject" : "doc_type";
+    await supabaseAdmin
+      .from("pending_documents")
+      .update({ [field]: value })
+      .eq("id", pendingId);
+
+    const subject = action === "docsubj" ? value : pending.subject;
+    const docType = action === "doctype" ? value : pending.doc_type;
+
+    if (subject && docType) {
+      const success = await fileDocument({
+        fileId: pending.file_id,
+        fileName: pending.file_name,
+        subject,
+        docType,
+        captionText: pending.caption_text,
+      });
+
+      if (success) {
+        await supabaseAdmin.from("pending_documents").delete().eq("id", pendingId);
+        await editMessageText(chatId, messageId, `Filed as ${subject}/${docType} ✅`);
+      } else {
+        await editMessageText(
+          chatId,
+          messageId,
+          "Something went wrong filing this — try tapping an option again.",
+          action === "docsubj" ? subjectKeyboard(pendingId) : docTypeKeyboard(pendingId)
+        );
+      }
+      return;
+    }
+
+    if (!subject) {
+      await editMessageText(
+        chatId,
+        messageId,
+        `Doc type: ${docType}. Which subject is this for?`,
+        subjectKeyboard(pendingId)
+      );
+    } else {
+      await editMessageText(
+        chatId,
+        messageId,
+        `Subject: ${subject}. What type of document is this?`,
+        docTypeKeyboard(pendingId)
+      );
+    }
     return;
   }
 }
