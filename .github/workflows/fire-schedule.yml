@@ -10,6 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Call /api/schedule/fire
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl -sf -X GET "https://claude-pa-nine.vercel.app/api/schedule/fire" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is empty — check it is set as an *Actions* repository secret."
+            exit 1
+          fi
+          echo "Secret length: ${#CRON_SECRET}"
+
+          response=$(curl -s -w "\n%{http_code}" -X GET \
+            "https://claude-pa-nine.vercel.app/api/schedule/fire" \
+            -H "Authorization: Bearer $CRON_SECRET")
+
+          status=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "HTTP $status"
+          echo "Body: $body"
+
+          if [ "$status" != "200" ]; then
+            exit 1
+          fi
