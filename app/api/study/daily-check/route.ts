@@ -1,3 +1,4 @@
+import { dayKey } from "@/lib/schedule/datetime";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sendMessage } from "@/lib/telegram/api";
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse(null, { status: 401 });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dayKey(new Date());
 
   const { data: exams, error: examsError } = await supabaseAdmin
     .from("exams")

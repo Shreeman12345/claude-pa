@@ -1,3 +1,4 @@
+import { dayKey } from "@/lib/schedule/datetime";
 import { z } from "zod";
 import { SUBJECTS } from "@/lib/router/classifyDocument";
 
@@ -20,7 +21,7 @@ const FALLBACK: ExamInfo = {
 };
 
 export async function classifyExamInfo(text: string): Promise<ExamInfo> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dayKey(new Date());
 
   const systemPrompt = `Today's date is ${today}.
 

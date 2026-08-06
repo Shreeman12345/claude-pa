@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SUBJECTS } from "@/lib/router/classifyDocument";
+import { TIMEZONE } from "@/lib/schedule/datetime";
 
 const scheduleFallbackSchema = z.object({
   is_schedule_item: z.boolean(),
@@ -31,8 +32,11 @@ const FALLBACK: ScheduleFallback = {
 
 export async function classifyScheduleFallback(text: string): Promise<ScheduleFallback> {
   const now = new Date().toISOString();
+  const localNow = new Date().toLocaleString("en-GB", { timeZone: TIMEZONE });
 
   const systemPrompt = `The current date and time is ${now} (ISO 8601, UTC).
+The user is in ${TIMEZONE}, where it is currently ${localNow}. Any clock time
+they mention is in their local timezone, not UTC.
 
 Determine whether this message describes something to schedule: a class, event, reminder, or deadline.
 

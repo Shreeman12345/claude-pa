@@ -1,3 +1,4 @@
+import { dayKey } from "@/lib/schedule/datetime";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { ExamInfo } from "@/lib/router/classifyExam";
 
@@ -13,7 +14,7 @@ function formatDate(dateStr: string): string {
 
 export async function routeExamInfo(info: ExamInfo): Promise<string> {
   const subject = info.subject!;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dayKey(new Date());
 
   const { data: existing } = await supabaseAdmin
     .from("exams")

@@ -5,6 +5,8 @@
  */
 export const TIMEZONE = "Asia/Kolkata";
 export const UTC_OFFSET = "+05:30";
+/** Same offset in minutes, for libraries that want a numeric reference. */
+export const UTC_OFFSET_MINUTES = 330;
 
 /** YYYY-MM-DD in the user's timezone. Sorts lexicographically. */
 export function dayKey(date: Date): string {

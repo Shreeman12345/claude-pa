@@ -1,6 +1,7 @@
 import * as chrono from "chrono-node";
 import { SUBJECTS } from "@/lib/router/classifyDocument";
 import { classifyScheduleFallback } from "@/lib/schedule/classifyScheduleFallback";
+import { UTC_OFFSET_MINUTES } from "@/lib/schedule/datetime";
 
 export type ScheduleKind = "class" | "event" | "reminder" | "deadline";
 export type Recurrence = "daily" | "weekly" | "monthly" | "yearly";
@@ -125,7 +126,14 @@ function chronoTimeSpecificity(matchedText: string): TimeSpecificity {
 
 export async function parseScheduleMessage(text: string): Promise<ParsedScheduleItem | null> {
   const now = new Date();
-  const results = chrono.parse(text, now, { forwardDate: true });
+  // Without an explicit timezone reference chrono resolves clock times against
+  // the server clock, which is UTC on Vercel -- "1am" would be stored as 1am
+  // UTC, i.e. 6:30am for the user.
+  const results = chrono.parse(
+    text,
+    { instant: now, timezone: UTC_OFFSET_MINUTES },
+    { forwardDate: true }
+  );
 
   if (results.length > 0) {
     const result = results[0];
