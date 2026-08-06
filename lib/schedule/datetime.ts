@@ -57,6 +57,58 @@ export function formatDateOnly(dateStr: string): string {
   return `${part("day")} ${part("month")}`;
 }
 
+export interface LocalParts {
+  year: number;
+  /** 0-based, matching Date's month convention. */
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  /** 0 = Sunday. */
+  weekday: number;
+}
+
+/**
+ * Calendar fields as the user sees them. Date's getFullYear/getMonth/getDate/
+ * getDay all read server-local time, which is UTC on Vercel -- use these
+ * instead for any calendar arithmetic.
+ *
+ * Asia/Kolkata has no DST, so shifting by a fixed offset is exact.
+ */
+export function localParts(date: Date): LocalParts {
+  const shifted = new Date(date.getTime() + UTC_OFFSET_MINUTES * 60_000);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth(),
+    day: shifted.getUTCDate(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+    second: shifted.getUTCSeconds(),
+    weekday: shifted.getUTCDay(),
+  };
+}
+
+/** Inverse of localParts: local calendar fields back to a UTC instant. */
+export function fromLocalParts(parts: {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+}): Date {
+  return new Date(
+    Date.UTC(parts.year, parts.month, parts.day, parts.hour, parts.minute, parts.second) -
+      UTC_OFFSET_MINUTES * 60_000
+  );
+}
+
+/** Days in a month, by 0-based month index. */
+export function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+}
+
 /** Whole days from today (user's timezone) to a date-only string. */
 export function daysUntil(dateStr: string): number {
   const [year, month, day] = dateStr.split("-").map(Number);

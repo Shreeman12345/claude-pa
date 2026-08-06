@@ -1,4 +1,5 @@
 import { Recurrence } from "@/lib/schedule/parse";
+import { localParts, fromLocalParts, daysInMonth } from "@/lib/schedule/datetime";
 
 const WEEKDAY_INDEX: Record<string, number> = {
   sun: 0,
@@ -10,52 +11,65 @@ const WEEKDAY_INDEX: Record<string, number> = {
   sat: 6,
 };
 
-function daysInMonth(year: number, monthIndex: number): number {
-  return new Date(year, monthIndex + 1, 0).getDate();
-}
+const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Advance a recurring item to its next occurrence, keeping the same local
+ * clock time.
+ *
+ * All calendar reasoning goes through the user's local fields. Reading
+ * getDay()/getDate() directly would use server-local time -- on Vercel that's
+ * UTC, where a 1:00 AM Monday item is still Sunday, so "every Monday" would
+ * advance from the wrong weekday.
+ *
+ * Asia/Kolkata has no DST, so adding whole days as milliseconds preserves the
+ * local clock time exactly.
+ */
 export function nextOccurrence(
   current: Date,
   recurrence: Recurrence,
   recurrenceDays: string | null
 ): Date {
   if (recurrence === "daily") {
-    return new Date(current.getTime() + 24 * 60 * 60 * 1000);
+    return new Date(current.getTime() + DAY_MS);
   }
 
   if (recurrence === "weekly") {
-    if (recurrenceDays) {
-      const targetDays = recurrenceDays
-        .split(",")
-        .map((d) => WEEKDAY_INDEX[d.trim().toLowerCase()])
-        .filter((d) => d !== undefined);
+    const targetDays = (recurrenceDays ?? "")
+      .split(",")
+      .map((d) => WEEKDAY_INDEX[d.trim().toLowerCase()])
+      .filter((d): d is number => d !== undefined);
 
-      if (targetDays.length > 0) {
-        for (let delta = 1; delta <= 7; delta++) {
-          const candidateDay = (current.getDay() + delta) % 7;
-          if (targetDays.includes(candidateDay)) {
-            return new Date(current.getTime() + delta * 24 * 60 * 60 * 1000);
-          }
+    if (targetDays.length > 0) {
+      const { weekday } = localParts(current);
+      for (let delta = 1; delta <= 7; delta++) {
+        if (targetDays.includes((weekday + delta) % 7)) {
+          return new Date(current.getTime() + delta * DAY_MS);
         }
       }
     }
-    return new Date(current.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return new Date(current.getTime() + 7 * DAY_MS);
   }
+
+  const parts = localParts(current);
 
   if (recurrence === "monthly") {
-    const targetYear = current.getFullYear() + (current.getMonth() === 11 ? 1 : 0);
-    const targetMonth = (current.getMonth() + 1) % 12;
-    const day = Math.min(current.getDate(), daysInMonth(targetYear, targetMonth));
-    const next = new Date(current);
-    next.setFullYear(targetYear, targetMonth, day);
-    return next;
+    const year = parts.year + (parts.month === 11 ? 1 : 0);
+    const month = (parts.month + 1) % 12;
+    // Clamp so 31 Jan rolls to 28/29 Feb rather than overflowing into March.
+    return fromLocalParts({
+      ...parts,
+      year,
+      month,
+      day: Math.min(parts.day, daysInMonth(year, month)),
+    });
   }
 
-  // yearly
-  const targetYear = current.getFullYear() + 1;
-  const month = current.getMonth();
-  const day = Math.min(current.getDate(), daysInMonth(targetYear, month));
-  const next = new Date(current);
-  next.setFullYear(targetYear, month, day);
-  return next;
+  // yearly -- clamp keeps 29 Feb valid in non-leap years.
+  const year = parts.year + 1;
+  return fromLocalParts({
+    ...parts,
+    year,
+    day: Math.min(parts.day, daysInMonth(year, parts.month)),
+  });
 }
