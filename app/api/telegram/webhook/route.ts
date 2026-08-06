@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { classify } from "@/lib/router/classify";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { routeCapture, summarizeFields } from "@/lib/router/routeCapture";
+import { sendMessage } from "@/lib/telegram/api";
+import { handleCallbackQuery } from "@/lib/telegram/handleCallback";
 
 export async function POST(req: NextRequest) {
   const secretHeader = req.headers.get("x-telegram-bot-api-secret-token");
@@ -14,6 +12,16 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
+
+  if (body.callback_query) {
+    const senderId = body.callback_query.from?.id;
+    if (String(senderId) !== process.env.TELEGRAM_USER_ID) {
+      return new NextResponse(null, { status: 200 });
+    }
+    await handleCallbackQuery(body.callback_query);
+    return new NextResponse(null, { status: 200 });
+  }
+
   const message = body.message;
 
   const senderId = message?.from?.id;
@@ -28,13 +36,42 @@ export async function POST(req: NextRequest) {
 
   const classification = raw_text ? await classify(raw_text) : null;
 
-  await supabase.from("raw_captures").insert({
-    source,
-    raw_text,
-    classification,
-    routed_to: null,
-    routed_id: null,
-  });
+  const { data: inserted, error } = await supabaseAdmin
+    .from("raw_captures")
+    .insert({
+      source,
+      raw_text,
+      classification,
+      routed_to: null,
+      routed_id: null,
+    })
+    .select()
+    .single();
+
+  if (error || !inserted) {
+    console.error("Failed to insert raw_capture:", error);
+    return new NextResponse(null, { status: 200 });
+  }
+
+  if (classification?.kind) {
+    if (classification.confidence === "high") {
+      await routeCapture(inserted.id, classification.kind, classification.fields);
+    } else {
+      const summary = summarizeFields(classification.kind, classification.fields);
+      const text = `Not sure — sounds like a ${classification.kind}: '${summary}'`;
+      await sendMessage(message.chat.id, text, {
+        inline_keyboard: [
+          [
+            {
+              text: "✅ Yes, that's right",
+              callback_data: `yes:${inserted.id}:${classification.kind}`,
+            },
+            { text: "✏️ No, let me pick", callback_data: `no:${inserted.id}` },
+          ],
+        ],
+      });
+    }
+  }
 
   return new NextResponse(null, { status: 200 });
 }
