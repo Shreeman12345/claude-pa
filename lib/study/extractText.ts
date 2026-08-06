@@ -2,9 +2,9 @@ import fs from "fs/promises";
 import os from "os";
 import path from "path";
 import { randomUUID } from "crypto";
-import officeParser from "officeparser";
+import { parseOffice } from "officeparser";
 
-const TEXT_EXTENSIONS = ["pdf", "docx", "pptx", "xlsx", "doc", "ppt", "odt", "odp", "ods"];
+const TEXT_EXTENSIONS = ["pdf", "docx", "pptx", "xlsx", "odt", "odp", "ods", "rtf"];
 const IMAGE_EXTENSIONS: Record<string, string> = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
@@ -30,7 +30,8 @@ export async function extractTextFromFile(blob: Blob, fileName: string): Promise
   const tmpPath = path.join(os.tmpdir(), `${randomUUID()}-${fileName}`);
   await fs.writeFile(tmpPath, buffer);
   try {
-    return await officeParser.parseOfficeAsync(tmpPath);
+    const ast = await parseOffice(tmpPath);
+    return ast.toText();
   } finally {
     await fs.unlink(tmpPath).catch(() => {});
   }
