@@ -11,6 +11,7 @@ import { formatScheduleConfirmation } from "@/lib/schedule/formatMessage";
 import { ParsedScheduleItem } from "@/lib/schedule/parse";
 import { createScheduleItem } from "@/lib/schedule/panel";
 import { toggleHabit, buildHabitPanel, Habit } from "@/lib/habits/panel";
+import { resolvePendingFinance } from "@/lib/telegram/routeFinance";
 
 const KIND_LABELS: Record<CaptureKind, string> = {
   task: "Task",
@@ -179,6 +180,17 @@ export async function handleCallbackQuery(callbackQuery: any): Promise<void> {
     await toggleHabit(habit, logDate);
     const panel = await buildHabitPanel(logDate);
     await editMessageText(chatId, messageId, panel.text, panel.keyboard, "Markdown");
+    return;
+  }
+
+  if (action === "fincat") {
+    const pendingId = captureId;
+    const categoryName = kind;
+
+    const result = await resolvePendingFinance(pendingId, categoryName);
+    if (result) {
+      await editMessageText(chatId, messageId, result.text);
+    }
     return;
   }
 }

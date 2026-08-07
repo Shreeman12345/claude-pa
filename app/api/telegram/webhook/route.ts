@@ -12,6 +12,8 @@ import { handleScheduleMessage } from "@/lib/schedule/routeSchedule";
 import { isDigestRequest } from "@/lib/schedule/detectDigestRequest";
 import { buildWeeklyDigest } from "@/lib/schedule/digest";
 import { buildHabitPanel } from "@/lib/habits/panel";
+import { isPeriodResetRequest } from "@/lib/finance/detectPeriodReset";
+import { handlePeriodReset, handleFinanceMessage } from "@/lib/telegram/routeFinance";
 
 export async function POST(req: NextRequest) {
   const secretHeader = req.headers.get("x-telegram-bot-api-secret-token");
@@ -56,6 +58,11 @@ export async function POST(req: NextRequest) {
       return new NextResponse(null, { status: 200 });
     }
 
+    if (isPeriodResetRequest(message.text)) {
+      await handlePeriodReset(message);
+      return new NextResponse(null, { status: 200 });
+    }
+
     const examInfo = await classifyExamInfo(message.text);
     if (examInfo.is_exam_info && examInfo.subject) {
       const confirmation = await routeExamInfo(examInfo);
@@ -65,6 +72,11 @@ export async function POST(req: NextRequest) {
 
     const handledAsSchedule = await handleScheduleMessage(message);
     if (handledAsSchedule) {
+      return new NextResponse(null, { status: 200 });
+    }
+
+    const handledAsFinance = await handleFinanceMessage(message);
+    if (handledAsFinance) {
       return new NextResponse(null, { status: 200 });
     }
   }
