@@ -5,7 +5,6 @@ import Calendar from "./components/Calendar";
 import Habits from "./components/Habits";
 import Tasks from "./components/Tasks";
 import LiveClock from "./components/LiveClock";
-import { getCalendarWeek } from "@/lib/dashboard/calendarWeek";
 
 const NET_WORTH_SPARK = [12, 18, 15, 22, 20, 28, 26, 34, 30, 38, 42, 40, 48];
 
@@ -16,9 +15,7 @@ const ACTIVITY = [
   { time: "13:20", text: "Task completed: review schema" },
 ];
 
-export default async function Home() {
-  const calendarWeek = await getCalendarWeek();
-
+export default function Home() {
   return (
     <>
       <TopNav />
@@ -195,7 +192,7 @@ export default async function Home() {
 
             <Habits />
 
-            <Calendar week={calendarWeek} />
+            <Calendar />
           </div>
 
           {/* right column */}
