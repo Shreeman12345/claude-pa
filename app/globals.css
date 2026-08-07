@@ -1,0 +1,122 @@
+:root {
+  /* backgrounds — 3 shades of near-black */
+  --bg-0: #050505; /* page base */
+  --bg-1: #0a0a0a; /* panel fill */
+  --bg-2: #121212; /* raised / hover fill */
+
+  /* borders */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  /* accent */
+  --accent: #34ff8f;
+  --accent-dim: rgba(52, 255, 143, 0.12);
+  --accent-border: rgba(52, 255, 143, 0.35);
+
+  /* status colors */
+  --danger: #ff5c5c;
+  --danger-dim: rgba(255, 92, 92, 0.1);
+  --danger-border: rgba(255, 92, 92, 0.35);
+  --warning: #ffb454;
+  --warning-dim: rgba(255, 180, 84, 0.1);
+  --warning-border: rgba(255, 180, 84, 0.35);
+  --info: #5c9dff;
+
+  /* text — 3 opacity levels for hierarchy */
+  --text-primary: rgba(255, 255, 255, 0.92);
+  --text-secondary: rgba(255, 255, 255, 0.56);
+  --text-tertiary: rgba(255, 255, 255, 0.32);
+
+  /* type — --font-display / --font-mono are set on <html> by next/font (layout.tsx) */
+
+  /* geometry */
+  --radius-panel: 10px;
+  --radius-inner: 6px;
+  --radius-pill: 999px;
+  --blur-glass: 14px;
+
+  /* spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: var(--bg-0);
+  color: var(--text-primary);
+  font-family: var(--font-display);
+}
+
+body {
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--accent-dim);
+  color: var(--text-primary);
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  background: var(--bg-2);
+  white-space: nowrap;
+}
+
+.pill--accent {
+  color: var(--accent);
+  border-color: var(--accent-border);
+  background: var(--accent-dim);
+}
+
+.pill--danger {
+  color: var(--danger);
+  border-color: var(--danger-border);
+  background: var(--danger-dim);
+}
+
+.pill--warning {
+  color: var(--warning);
+  border-color: var(--warning-border);
+  background: var(--warning-dim);
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
