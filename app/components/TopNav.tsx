@@ -1,8 +1,25 @@
+"use client";
+
+import LiveClock from "./LiveClock";
+
 const NAV_ITEMS = ["HOME", "TASKS", "FINANCE", "STUDY"];
 
 export const TOPNAV_HEIGHT = 44;
 
+// Only these have somewhere to go: HOME is the page you're already on, TASKS
+// scrolls to the Tasks panel (there's no separate /tasks route -- it's one
+// dashboard page). FINANCE and STUDY have no page yet, so no entry.
+const NAV_TARGETS: Record<string, string> = {
+  TASKS: "tasks-panel",
+};
+
 export default function TopNav() {
+  const handleNavClick = (item: string) => {
+    const targetId = NAV_TARGETS[item];
+    if (!targetId) return;
+    document.getElementById(targetId)?.scrollIntoView({ behavior: "instant", block: "start" });
+  };
+
   return (
     <div
       className="mono"
@@ -37,9 +54,11 @@ export default function TopNav() {
           {NAV_ITEMS.map((item, i) => (
             <span
               key={item}
+              onClick={() => handleNavClick(item)}
               style={{
                 color: i === 0 ? "var(--text-primary)" : "var(--text-tertiary)",
                 textTransform: "uppercase",
+                cursor: NAV_TARGETS[item] ? "pointer" : "default",
               }}
             >
               {item}
@@ -52,7 +71,9 @@ export default function TopNav() {
           TASKS <span style={{ color: "var(--accent)" }}>3/5</span>
         </span>
         <span>AUG 07, 2026</span>
-        <span style={{ color: "var(--text-primary)" }}>15:38</span>
+        <span style={{ color: "var(--text-primary)" }}>
+          <LiveClock />
+        </span>
       </div>
     </div>
   );

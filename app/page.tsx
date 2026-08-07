@@ -125,7 +125,9 @@ export default function Home() {
               </div>
             </Panel>
 
-            <Tasks />
+            <div id="tasks-panel">
+              <Tasks />
+            </div>
           </div>
 
           {/* center column */}
@@ -182,8 +184,9 @@ export default function Home() {
                   Set today&apos;s one thing…
                 </span>
                 <span
-                  className="pill pill--accent"
-                  style={{ border: "none", cursor: "pointer" }}
+                  className="pill"
+                  style={{ border: "none", cursor: "not-allowed", opacity: 0.5 }}
+                  title="Not built yet — capture still happens via Telegram"
                 >
                   → CAPTURE
                 </span>
@@ -239,10 +242,26 @@ export default function Home() {
                   background: "var(--bg-2)",
                 }}
               >
-                <span style={{ fontSize: 12, color: "var(--text-tertiary)", flex: 1, minWidth: 0 }}>
-                  Log a capture — try &quot;spent $12 on lunch&quot;
-                </span>
-                <span className="pill pill--accent" style={{ border: "none", cursor: "pointer" }}>
+                <input
+                  disabled
+                  placeholder='Log a capture — try "spent $12 on lunch"'
+                  style={{
+                    fontSize: 12,
+                    color: "var(--text-tertiary)",
+                    flex: 1,
+                    minWidth: 0,
+                    background: "transparent",
+                    border: "none",
+                    outline: "none",
+                    fontFamily: "inherit",
+                    cursor: "not-allowed",
+                  }}
+                />
+                <span
+                  className="pill"
+                  style={{ border: "none", cursor: "not-allowed", opacity: 0.5 }}
+                  title="Not built yet — capture still happens via Telegram"
+                >
                   +
                 </span>
               </div>
