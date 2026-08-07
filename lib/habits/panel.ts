@@ -1,16 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { dayKey, dayLabel } from "@/lib/schedule/datetime";
+import { HABITS, type Habit, HABIT_LABEL } from "@/lib/habits/constants";
 
-export const HABITS = ["Gym", "Diet", "HairSkin", "MealPrep", "Journaling"] as const;
-export type Habit = (typeof HABITS)[number];
-
-const HABIT_LABEL: Record<Habit, string> = {
-  Gym: "Gym",
-  Diet: "Diet",
-  HairSkin: "Hair/Skin",
-  MealPrep: "Meal Prep",
-  Journaling: "Journaling",
-};
+export { HABITS, HABIT_LABEL };
+export type { Habit };
 
 interface InlineKeyboard {
   inline_keyboard: { text: string; callback_data: string }[][];
@@ -51,6 +44,25 @@ export async function buildHabitPanel(logDate: string = dayKey(new Date())): Pro
   }));
 
   return { text, keyboard: { inline_keyboard: chunk(buttons, 2) } };
+}
+
+export interface HabitStatus {
+  habit: Habit;
+  done: boolean;
+}
+
+export async function getTodayHabitStatus(logDate: string = dayKey(new Date())): Promise<HabitStatus[]> {
+  const { data, error } = await supabaseAdmin
+    .from("habit_logs")
+    .select("habit, done")
+    .eq("log_date", logDate);
+
+  if (error) {
+    console.error("Failed to load habit_logs status:", error);
+  }
+
+  const doneMap = new Map((data ?? []).map((row) => [row.habit as Habit, row.done as boolean]));
+  return HABITS.map((habit) => ({ habit, done: doneMap.get(habit) ?? false }));
 }
 
 export async function toggleHabit(habit: Habit, logDate: string): Promise<void> {
