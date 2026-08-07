@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import Panel from "./Panel";
 import { HABITS, Habit, HABIT_LABEL } from "@/lib/habits/constants";
-import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { useRealtimeData } from "@/lib/hooks/useRealtimeData";
 
 const CATEGORY: Record<Habit, string> = {
   Gym: "BODY",
@@ -23,54 +22,36 @@ function emptyStatus(): Status {
   return Object.fromEntries(HABITS.map((h) => [h, false])) as Status;
 }
 
+function parseStatus(habits: { habit: Habit; done: boolean }[]): Status {
+  return Object.fromEntries(habits.map((h) => [h.habit, h.done])) as Status;
+}
+
+async function fetchHabits(): Promise<Status> {
+  const res = await fetch("/api/habits");
+  const data: { habits: { habit: Habit; done: boolean }[] } = await res.json();
+  return parseStatus(data.habits);
+}
+
+async function postToggle(habit: Habit): Promise<Status> {
+  const res = await fetch(`/api/habits/${habit}`, { method: "POST" });
+  const data: { habits: { habit: Habit; done: boolean }[] } = await res.json();
+  return parseStatus(data.habits);
+}
+
 export default function Habits() {
-  const [status, setStatus] = useState<Status>(emptyStatus);
+  const { data: status, mutate } = useRealtimeData<Status>({
+    table: "habit_logs",
+    filter: `log_date=eq.${todayKey()}`,
+    initialData: emptyStatus(),
+    fetchData: fetchHabits,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/habits")
-      .then((res) => res.json())
-      .then((data: { habits: { habit: Habit; done: boolean }[] }) => {
-        if (cancelled) return;
-        setStatus(Object.fromEntries(data.habits.map((h) => [h.habit, h.done])) as Status);
-      })
-      .catch((err) => console.error("Failed to load habits:", err));
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    const logDate = todayKey();
-    const channel = supabaseBrowser
-      .channel(`habit_logs:${logDate}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "habit_logs", filter: `log_date=eq.${logDate}` },
-        (payload) => {
-          const row = (payload.new ?? payload.old) as { habit: Habit; done: boolean } | undefined;
-          if (!row) return;
-          setStatus((prev) => ({ ...prev, [row.habit]: row.done }));
-        }
-      )
-      .subscribe((subStatus) => {
-        if (subStatus === "CHANNEL_ERROR" || subStatus === "TIMED_OUT") {
-          console.error("habit_logs realtime subscription failed:", subStatus);
-        }
-      });
-
-    return () => {
-      supabaseBrowser.removeChannel(channel);
-    };
-  }, []);
-
-  const toggle = useCallback((habit: Habit) => {
-    setStatus((prev) => ({ ...prev, [habit]: !prev[habit] }));
-    fetch(`/api/habits/${habit}`, { method: "POST" }).catch((err) => {
-      console.error("Failed to toggle habit:", err);
-      setStatus((prev) => ({ ...prev, [habit]: !prev[habit] }));
-    });
-  }, []);
+  const toggle = (habit: Habit) => {
+    mutate(
+      (prev) => ({ ...prev, [habit]: !prev[habit] }),
+      () => postToggle(habit)
+    );
+  };
 
   const doneCount = HABITS.filter((h) => status[h]).length;
   const percent = Math.round((doneCount / HABITS.length) * 100);

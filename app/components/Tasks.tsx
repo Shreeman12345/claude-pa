@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import Panel from "./Panel";
-import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { useRealtimeData } from "@/lib/hooks/useRealtimeData";
 
 interface Task {
   id: string;
@@ -23,44 +22,31 @@ function daysAgo(iso: string): number {
   return Math.max(0, Math.floor(diffMs / (24 * 60 * 60 * 1000)));
 }
 
+async function fetchTasks(): Promise<Task[] | null> {
+  const res = await fetch("/api/tasks");
+  const data: { tasks: Task[] } = await res.json();
+  return data.tasks;
+}
+
+async function postComplete(taskId: string): Promise<Task[] | null> {
+  const res = await fetch(`/api/tasks/${taskId}`, { method: "POST" });
+  const data: { tasks: Task[] } = await res.json();
+  return data.tasks;
+}
+
 export default function Tasks() {
-  const [tasks, setTasks] = useState<Task[] | null>(null);
+  const { data: tasks, mutate } = useRealtimeData<Task[] | null>({
+    table: "tasks",
+    initialData: null,
+    fetchData: fetchTasks,
+  });
 
-  const refetch = useCallback(() => {
-    fetch("/api/tasks")
-      .then((res) => res.json())
-      .then((data: { tasks: Task[] }) => setTasks(data.tasks))
-      .catch((err) => console.error("Failed to load tasks:", err));
-  }, []);
-
-  useEffect(() => {
-    refetch();
-  }, [refetch]);
-
-  useEffect(() => {
-    const channel = supabaseBrowser
-      .channel("tasks")
-      .on("postgres_changes", { event: "*", schema: "public", table: "tasks" }, () => {
-        refetch();
-      })
-      .subscribe((subStatus) => {
-        if (subStatus === "CHANNEL_ERROR" || subStatus === "TIMED_OUT") {
-          console.error("tasks realtime subscription failed:", subStatus);
-        }
-      });
-
-    return () => {
-      supabaseBrowser.removeChannel(channel);
-    };
-  }, [refetch]);
-
-  const complete = useCallback((taskId: string) => {
-    setTasks((prev) => (prev ? prev.filter((t) => t.id !== taskId) : prev));
-    fetch(`/api/tasks/${taskId}`, { method: "POST" })
-      .then((res) => res.json())
-      .then((data: { tasks: Task[] }) => setTasks(data.tasks))
-      .catch((err) => console.error("Failed to complete task:", err));
-  }, []);
+  const complete = (taskId: string) => {
+    mutate(
+      (prev) => (prev ?? []).filter((t) => t.id !== taskId),
+      () => postComplete(taskId)
+    );
+  };
 
   const count = tasks?.length ?? 0;
 
