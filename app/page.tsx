@@ -4,6 +4,7 @@ import TopNav from "./components/TopNav";
 import Calendar from "./components/Calendar";
 import Habits from "./components/Habits";
 import Tasks from "./components/Tasks";
+import LiveClock from "./components/LiveClock";
 import { getCalendarWeek } from "@/lib/dashboard/calendarWeek";
 
 const NET_WORTH_SPARK = [12, 18, 15, 22, 20, 28, 26, 34, 30, 38, 42, 40, 48];
@@ -159,7 +160,7 @@ export default async function Home() {
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <div className="mono" style={{ fontSize: 26, color: "var(--accent)" }}>
-                    15:38
+                    <LiveClock />
                   </div>
                   <div className="label">LOCAL TIME</div>
                 </div>
