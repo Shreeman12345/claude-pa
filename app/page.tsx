@@ -3,13 +3,8 @@ import Panel from "./components/Panel";
 import TopNav from "./components/TopNav";
 import Calendar from "./components/Calendar";
 import Habits from "./components/Habits";
+import Tasks from "./components/Tasks";
 import { getCalendarWeek } from "@/lib/dashboard/calendarWeek";
-
-const BLOCKERS = [
-  { title: "Waiting on document review", owner: "Owner", days: 3, hot: true },
-  { title: "Blocked on API access", owner: "You", days: 1, hot: false },
-  { title: "Needs sign-off before submission", owner: "Owner", days: 5, hot: true },
-];
 
 const NET_WORTH_SPARK = [12, 18, 15, 22, 20, 28, 26, 34, 30, 38, 42, 40, 48];
 
@@ -132,44 +127,7 @@ export default async function Home() {
               </div>
             </Panel>
 
-            <Panel
-              label="02 // STATUS"
-              title="Key Blockers"
-              headerRight={
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span className="pill">{BLOCKERS.length} ACTIVE</span>
-                  <span className="mono" style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
-                    VIEW ALL
-                  </span>
-                </div>
-              }
-            >
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {BLOCKERS.map((b, i) => (
-                  <div
-                    key={b.title}
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: "var(--space-2)",
-                      padding: "10px 0",
-                      borderBottom: i < BLOCKERS.length - 1 ? "1px solid var(--border)" : "none",
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: 13, color: "var(--text-primary)" }}>{b.title}</div>
-                      <div className="mono" style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>
-                        OWNER {b.owner.toUpperCase()} · STUCK {b.days}D
-                      </div>
-                    </div>
-                    <span className={`pill ${b.hot ? "pill--danger" : "pill--warning"}`}>
-                      {b.hot ? "HOT" : "WARN"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Panel>
+            <Tasks />
           </div>
 
           {/* center column */}
