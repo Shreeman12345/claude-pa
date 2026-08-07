@@ -9,6 +9,7 @@ import { fileDocument } from "@/lib/router/routeDocument";
 import { subjectKeyboard, docTypeKeyboard } from "@/lib/telegram/documentKeyboards";
 import { formatScheduleConfirmation } from "@/lib/schedule/formatMessage";
 import { ParsedScheduleItem } from "@/lib/schedule/parse";
+import { createScheduleItem } from "@/lib/schedule/panel";
 import { toggleHabit, buildHabitPanel, Habit } from "@/lib/habits/panel";
 
 const KIND_LABELS: Record<CaptureKind, string> = {
@@ -162,19 +163,7 @@ export async function handleCallbackQuery(callbackQuery: any): Promise<void> {
       // it as a Task instead), so there's no lead-time concept here.
       const item: ParsedScheduleItem = { ...parsed, kind: "reminder", remind_before_days: null };
 
-      await supabaseAdmin.from("schedule_items").insert({
-        kind: item.kind,
-        title: item.title,
-        location: item.location,
-        notes: null,
-        starts_at: item.starts_at,
-        ends_at: item.ends_at,
-        recurrence: item.recurrence,
-        recurrence_days: item.recurrence_days,
-        subject: item.subject,
-        active: true,
-        remind_before_days: item.remind_before_days,
-      });
+      await createScheduleItem(item);
 
       await editMessageText(chatId, messageId, formatScheduleConfirmation(item));
     }

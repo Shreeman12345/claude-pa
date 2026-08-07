@@ -35,6 +35,16 @@ export function timeLabel(date: Date): string {
   });
 }
 
+/** "15:38" -- 24hr HH:MM in the user's timezone. */
+export function hhmm(date: Date): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
+}
+
 /** Midnight today in the user's timezone, as a UTC instant. */
 export function startOfToday(): Date {
   return new Date(`${dayKey(new Date())}T00:00:00${UTC_OFFSET}`);
@@ -115,4 +125,25 @@ export function daysUntil(dateStr: string): number {
   const [ty, tm, td] = dayKey(new Date()).split("-").map(Number);
   const diffMs = Date.UTC(year, month - 1, day) - Date.UTC(ty, tm - 1, td);
   return Math.round(diffMs / (24 * 60 * 60 * 1000));
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export interface WeekBounds {
+  /** Midnight Monday, as a UTC instant. */
+  monday: Date;
+  /** Midnight the following Monday, as a UTC instant -- an exclusive upper bound. */
+  nextMonday: Date;
+  mondayKey: string;
+  sundayKey: string;
+}
+
+/** Monday..Sunday of the week containing `now`, in the user's timezone. */
+export function weekBounds(now: Date = new Date()): WeekBounds {
+  const { weekday } = localParts(now);
+  const mondayOffset = (weekday + 6) % 7; // weekday is 0=Sun; days since Monday
+  const monday = new Date(startOfDay(dayKey(now)).getTime() - mondayOffset * DAY_MS);
+  const nextMonday = new Date(monday.getTime() + 7 * DAY_MS);
+  const sunday = new Date(monday.getTime() + 6 * DAY_MS);
+  return { monday, nextMonday, mondayKey: dayKey(monday), sundayKey: dayKey(sunday) };
 }

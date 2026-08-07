@@ -8,20 +8,9 @@ import {
   startOfDay,
   formatDateOnly,
   daysUntil,
-  localParts,
+  weekBounds,
 } from "@/lib/schedule/datetime";
 import { HABITS } from "@/lib/habits/panel";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** Monday..Sunday of the current week, in the user's timezone. */
-function currentWeekRange(): { mondayKey: string; sundayKey: string } {
-  const { weekday } = localParts(new Date());
-  const daysSinceMonday = (weekday + 6) % 7; // Sun=0 -> 6, Mon=1 -> 0, ... Sat=6 -> 5
-  const monday = new Date(startOfToday().getTime() - daysSinceMonday * DAY_MS);
-  const sunday = new Date(monday.getTime() + 6 * DAY_MS);
-  return { mondayKey: dayKey(monday), sundayKey: dayKey(sunday) };
-}
 
 const KIND_EMOJI: Record<ScheduleKind, string> = {
   class: "🎓",
@@ -65,7 +54,7 @@ export async function buildWeeklyDigest(): Promise<string> {
   const examWindowEnd = new Date(windowStart.getTime() + 14 * 24 * 60 * 60 * 1000);
   const todayKey = dayKey(new Date());
 
-  const { mondayKey, sundayKey } = currentWeekRange();
+  const { mondayKey, sundayKey } = weekBounds();
 
   const [scheduleRes, tasksRes, examsRes, habitsRes] = await Promise.all([
     supabaseAdmin

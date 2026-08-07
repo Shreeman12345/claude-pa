@@ -3,25 +3,9 @@ import { sendMessage } from "@/lib/telegram/api";
 import {
   parseScheduleMessage,
   hasExplicitReminderPhrasing,
-  ParsedScheduleItem,
 } from "@/lib/schedule/parse";
 import { formatScheduleConfirmation } from "@/lib/schedule/formatMessage";
-
-async function insertScheduleItem(item: ParsedScheduleItem): Promise<void> {
-  await supabaseAdmin.from("schedule_items").insert({
-    kind: item.kind,
-    title: item.title,
-    location: item.location,
-    notes: null,
-    starts_at: item.starts_at,
-    ends_at: item.ends_at,
-    recurrence: item.recurrence,
-    recurrence_days: item.recurrence_days,
-    subject: item.subject,
-    active: true,
-    remind_before_days: item.remind_before_days,
-  });
-}
+import { createScheduleItem } from "@/lib/schedule/panel";
 
 /** Returns true if the message was fully handled (schedule-related). */
 export async function handleScheduleMessage(message: any): Promise<boolean> {
@@ -36,7 +20,7 @@ export async function handleScheduleMessage(message: any): Promise<boolean> {
   // "due Friday, remind me a week before" is correctly kind: 'deadline';
   // forcing it to 'reminder' here would have discarded that).
   if (parsed.time_specificity === "specific" || explicitReminder) {
-    await insertScheduleItem(parsed);
+    await createScheduleItem(parsed);
     await sendMessage(message.chat.id, formatScheduleConfirmation(parsed));
     return true;
   }
