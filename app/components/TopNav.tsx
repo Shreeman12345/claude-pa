@@ -1,23 +1,48 @@
 "use client";
 
+import { useRouter, usePathname } from "next/navigation";
 import LiveClock from "./LiveClock";
 
 const NAV_ITEMS = ["HOME", "TASKS", "FINANCE", "STUDY"];
 
 export const TOPNAV_HEIGHT = 44;
 
-// Only these have somewhere to go: HOME is the page you're already on, TASKS
-// scrolls to the Tasks panel (there's no separate /tasks route -- it's one
-// dashboard page). FINANCE and STUDY have no page yet, so no entry.
-const NAV_TARGETS: Record<string, string> = {
-  TASKS: "tasks-panel",
+type NavTarget = { type: "route"; href: string } | { type: "anchor"; id: string };
+
+// TASKS is an anchor, not a route -- there's no separate /tasks page, it
+// scrolls to the Tasks panel on the home page. STUDY has no page yet.
+const NAV_TARGETS: Record<string, NavTarget> = {
+  HOME: { type: "route", href: "/" },
+  TASKS: { type: "anchor", id: "tasks-panel" },
+  FINANCE: { type: "route", href: "/finance" },
 };
 
 export default function TopNav() {
+  const router = useRouter();
+  const pathname = usePathname();
+
   const handleNavClick = (item: string) => {
-    const targetId = NAV_TARGETS[item];
-    if (!targetId) return;
-    document.getElementById(targetId)?.scrollIntoView({ behavior: "instant", block: "start" });
+    const target = NAV_TARGETS[item];
+    if (!target) return;
+
+    if (target.type === "route") {
+      router.push(target.href);
+      return;
+    }
+
+    // Anchor target only exists on "/" -- scroll if already there, otherwise
+    // just navigate home (no cross-page auto-scroll, that's a bigger feature
+    // than what was asked for here).
+    if (pathname === "/") {
+      document.getElementById(target.id)?.scrollIntoView({ behavior: "instant", block: "start" });
+    } else {
+      router.push("/");
+    }
+  };
+
+  const isActive = (item: string) => {
+    const target = NAV_TARGETS[item];
+    return target?.type === "route" && pathname === target.href;
   };
 
   return (
@@ -51,12 +76,12 @@ export default function TopNav() {
           CLAUDE PA <span style={{ color: "var(--text-tertiary)" }}>// V0.1</span>
         </span>
         <nav style={{ display: "flex", gap: "var(--space-5)" }}>
-          {NAV_ITEMS.map((item, i) => (
+          {NAV_ITEMS.map((item) => (
             <span
               key={item}
               onClick={() => handleNavClick(item)}
               style={{
-                color: i === 0 ? "var(--text-primary)" : "var(--text-tertiary)",
+                color: isActive(item) ? "var(--text-primary)" : "var(--text-tertiary)",
                 textTransform: "uppercase",
                 cursor: NAV_TARGETS[item] ? "pointer" : "default",
               }}

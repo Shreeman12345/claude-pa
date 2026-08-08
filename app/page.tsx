@@ -5,8 +5,7 @@ import Calendar from "./components/Calendar";
 import Habits from "./components/Habits";
 import Tasks from "./components/Tasks";
 import LiveClock from "./components/LiveClock";
-
-const NET_WORTH_SPARK = [12, 18, 15, 22, 20, 28, 26, 34, 30, 38, 42, 40, 48];
+import FinancePulse from "./components/FinancePulse";
 
 const ACTIVITY = [
   { time: "09:12", text: "Task captured: finalize dashboard tokens" },
@@ -78,52 +77,7 @@ export default function Home() {
               </div>
             </Panel>
 
-            <Panel
-              label="07 // FINANCE PULSE"
-              headerRight={<span className="pill pill--accent">LIVE</span>}
-            >
-              <div className="label">NET WORTH</div>
-              <div className="mono" style={{ fontSize: 28, color: "var(--text-primary)", marginTop: 4 }}>
-                $128,450
-              </div>
-              <div className="mono" style={{ fontSize: 11, color: "var(--accent)", marginTop: 2 }}>
-                ▲ +2.3% · 30D
-              </div>
-
-              <svg
-                viewBox="0 0 260 50"
-                preserveAspectRatio="none"
-                style={{ width: "100%", height: 50, marginTop: 10, display: "block" }}
-              >
-                <polyline
-                  points={NET_WORTH_SPARK.map((v, i) => {
-                    const min = Math.min(...NET_WORTH_SPARK);
-                    const max = Math.max(...NET_WORTH_SPARK);
-                    const x = (i / (NET_WORTH_SPARK.length - 1)) * 260;
-                    const y = 47 - ((v - min) / (max - min)) * 44;
-                    return `${x},${y}`;
-                  }).join(" ")}
-                  fill="none"
-                  stroke="var(--accent)"
-                  strokeWidth="1.5"
-                />
-              </svg>
-
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 12 }}>
-                <div>
-                  <div className="label">DAILY</div>
-                  <div className="mono" style={{ fontSize: 13, color: "var(--accent)", marginTop: 2 }}>
-                    +$X.X%
-                  </div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div className="label">MONTHLY</div>
-                  <div className="mono" style={{ fontSize: 13, color: "var(--accent)", marginTop: 2 }}>
-                    +$X.X%
-                  </div>
-                </div>
-              </div>
-            </Panel>
+            <FinancePulse />
 
             <div id="tasks-panel">
               <Tasks />
