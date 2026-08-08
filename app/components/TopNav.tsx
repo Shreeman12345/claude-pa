@@ -7,14 +7,11 @@ const NAV_ITEMS = ["HOME", "TASKS", "FINANCE", "STUDY"];
 
 export const TOPNAV_HEIGHT = 44;
 
-type NavTarget = { type: "route"; href: string } | { type: "anchor"; id: string };
-
-// TASKS is an anchor, not a route -- there's no separate /tasks page, it
-// scrolls to the Tasks panel on the home page. STUDY has no page yet.
-const NAV_TARGETS: Record<string, NavTarget> = {
-  HOME: { type: "route", href: "/" },
-  TASKS: { type: "anchor", id: "tasks-panel" },
-  FINANCE: { type: "route", href: "/finance" },
+// STUDY has no page yet, so no entry -- clicking it does nothing.
+const NAV_ROUTES: Record<string, string> = {
+  HOME: "/",
+  TASKS: "/tasks",
+  FINANCE: "/finance",
 };
 
 export default function TopNav() {
@@ -22,27 +19,8 @@ export default function TopNav() {
   const pathname = usePathname();
 
   const handleNavClick = (item: string) => {
-    const target = NAV_TARGETS[item];
-    if (!target) return;
-
-    if (target.type === "route") {
-      router.push(target.href);
-      return;
-    }
-
-    // Anchor target only exists on "/" -- scroll if already there, otherwise
-    // just navigate home (no cross-page auto-scroll, that's a bigger feature
-    // than what was asked for here).
-    if (pathname === "/") {
-      document.getElementById(target.id)?.scrollIntoView({ behavior: "instant", block: "start" });
-    } else {
-      router.push("/");
-    }
-  };
-
-  const isActive = (item: string) => {
-    const target = NAV_TARGETS[item];
-    return target?.type === "route" && pathname === target.href;
+    const href = NAV_ROUTES[item];
+    if (href) router.push(href);
   };
 
   return (
@@ -81,9 +59,9 @@ export default function TopNav() {
               key={item}
               onClick={() => handleNavClick(item)}
               style={{
-                color: isActive(item) ? "var(--text-primary)" : "var(--text-tertiary)",
+                color: pathname === NAV_ROUTES[item] ? "var(--text-primary)" : "var(--text-tertiary)",
                 textTransform: "uppercase",
-                cursor: NAV_TARGETS[item] ? "pointer" : "default",
+                cursor: NAV_ROUTES[item] ? "pointer" : "default",
               }}
             >
               {item}

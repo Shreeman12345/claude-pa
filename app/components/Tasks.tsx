@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import Panel from "./Panel";
 import { useRealtimeData } from "@/lib/hooks/useRealtimeData";
 
@@ -35,6 +36,7 @@ async function postComplete(taskId: string): Promise<Task[] | null> {
 }
 
 export default function Tasks() {
+  const router = useRouter();
   const { data: tasks, mutate } = useRealtimeData<Task[] | null>({
     table: "tasks",
     initialData: null,
@@ -57,7 +59,11 @@ export default function Tasks() {
       headerRight={
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span className="pill">{count} ACTIVE</span>
-          <span className="mono" style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+          <span
+            className="mono"
+            style={{ fontSize: 10, color: "var(--text-tertiary)", cursor: "pointer" }}
+            onClick={() => router.push("/tasks")}
+          >
             VIEW ALL
           </span>
         </div>

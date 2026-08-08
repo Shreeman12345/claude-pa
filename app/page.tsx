@@ -79,9 +79,7 @@ export default function Home() {
 
             <FinancePulse />
 
-            <div id="tasks-panel">
-              <Tasks />
-            </div>
+            <Tasks />
           </div>
 
           {/* center column */}
