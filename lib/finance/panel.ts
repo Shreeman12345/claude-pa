@@ -7,6 +7,7 @@ export interface FinanceCategory {
   id: string;
   name: string;
   kind: string;
+  expected: number;
 }
 
 export interface FinanceAccount {
@@ -23,7 +24,7 @@ export interface FinancePeriod {
 }
 
 export async function getCategories(): Promise<FinanceCategory[]> {
-  const { data, error } = await supabaseAdmin.from("finance_categories").select("id, name, kind");
+  const { data, error } = await supabaseAdmin.from("finance_categories").select("id, name, kind, expected");
   if (error) {
     console.error("Failed to load finance_categories:", error);
     return [];
@@ -195,4 +196,153 @@ export async function resetPeriod(): Promise<number | null> {
   }
 
   return leftover;
+}
+
+export async function getDebtTotal(): Promise<number> {
+  const { data, error } = await supabaseAdmin.from("finance_debts").select("total_owed");
+  if (error) {
+    console.error("Failed to load finance_debts:", error);
+    return 0;
+  }
+  return (data ?? []).reduce((sum, row) => sum + row.total_owed, 0);
+}
+
+/** Assets (sum of account balances) minus total debt owed. */
+export async function getNetWorth(): Promise<number> {
+  const [accounts, debtTotal] = await Promise.all([getAccounts(), getDebtTotal()]);
+  const assetsTotal = accounts.reduce((sum, a) => sum + a.balance, 0);
+  return assetsTotal - debtTotal;
+}
+
+export interface CategorySummary {
+  id: string;
+  name: string;
+  kind: string;
+  expected: number;
+  actual: number;
+  /** Rounded whole-number percent, or null when expected is 0 (avoids a divide-by-zero). */
+  percentage: number | null;
+}
+
+export interface PeriodSummary {
+  period: FinancePeriod;
+  categoriesByKind: Record<string, CategorySummary[]>;
+  accounts: FinanceAccount[];
+  netWorth: number;
+  debtTotal: number;
+}
+
+export async function getPeriodSummary(): Promise<PeriodSummary | null> {
+  const period = await getCurrentPeriod();
+  if (!period) return null;
+
+  const [categories, accounts, debtTotal, txnRes] = await Promise.all([
+    getCategories(),
+    getAccounts(),
+    getDebtTotal(),
+    supabaseAdmin
+      .from("finance_transactions")
+      .select("amount, category_id")
+      .eq("period_id", period.id),
+  ]);
+
+  if (txnRes.error) {
+    console.error("Failed to load transactions for period summary:", txnRes.error);
+  }
+
+  const actualByCategory = new Map<string, number>();
+  for (const t of txnRes.data ?? []) {
+    actualByCategory.set(t.category_id, (actualByCategory.get(t.category_id) ?? 0) + t.amount);
+  }
+
+  const categoriesByKind: Record<string, CategorySummary[]> = {};
+  for (const cat of categories) {
+    const actual = actualByCategory.get(cat.id) ?? 0;
+    const summary: CategorySummary = {
+      id: cat.id,
+      name: cat.name,
+      kind: cat.kind,
+      expected: cat.expected,
+      actual,
+      percentage: cat.expected > 0 ? Math.round((actual / cat.expected) * 100) : null,
+    };
+    (categoriesByKind[cat.kind] ??= []).push(summary);
+  }
+
+  const assetsTotal = accounts.reduce((sum, a) => sum + a.balance, 0);
+
+  return {
+    period,
+    categoriesByKind,
+    accounts,
+    netWorth: assetsTotal - debtTotal,
+    debtTotal,
+  };
+}
+
+export interface TransactionWithDetails {
+  id: string;
+  amount: number;
+  description: string | null;
+  occurred_at: string;
+  category: { id: string; name: string; kind: string } | null;
+  account: { id: string; name: string } | null;
+}
+
+export async function getRecentTransactions(limit = 30): Promise<TransactionWithDetails[]> {
+  const { data, error } = await supabaseAdmin
+    .from("finance_transactions")
+    .select("id, amount, description, occurred_at, finance_categories(id, name, kind), finance_accounts(id, name)")
+    .order("occurred_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error("Failed to load recent transactions:", error);
+    return [];
+  }
+
+  return (data ?? []).map((row: any) => ({
+    id: row.id,
+    amount: row.amount,
+    description: row.description,
+    occurred_at: row.occurred_at,
+    category: row.finance_categories ?? null,
+    account: row.finance_accounts ?? null,
+  }));
+}
+
+export async function updateCategoryExpected(
+  id: string,
+  expected: number
+): Promise<FinanceCategory | null> {
+  const { data, error } = await supabaseAdmin
+    .from("finance_categories")
+    .update({ expected })
+    .eq("id", id)
+    .select("id, name, kind, expected")
+    .single();
+
+  if (error) {
+    console.error("Failed to update category expected amount:", error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateAccountBalance(
+  id: string,
+  balance: number
+): Promise<FinanceAccount | null> {
+  const { data, error } = await supabaseAdmin
+    .from("finance_accounts")
+    .update({ balance, balance_updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("id, name, balance")
+    .single();
+
+  if (error) {
+    console.error("Failed to update account balance:", error);
+    return null;
+  }
+  return data;
 }
