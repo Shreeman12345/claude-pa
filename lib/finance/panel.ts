@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { TransactionType } from "@/lib/finance/classify";
+import { startOfToday } from "@/lib/schedule/datetime";
 
 const OUTFLOW_TYPES: readonly TransactionType[] = ["expense", "bill", "savings", "debt_payment"];
 
@@ -140,46 +141,24 @@ export async function createTransaction(params: {
   return true;
 }
 
-/** Sum of income minus sum of every outflow type, for a given period. */
-async function periodLeftover(periodId: string): Promise<number> {
-  const { data, error } = await supabaseAdmin
-    .from("finance_transactions")
-    .select("amount, category_id, finance_categories(kind)")
-    .eq("period_id", periodId);
-
-  if (error || !data) {
-    console.error("Failed to load transactions for period leftover:", error);
-    return 0;
-  }
-
-  let income = 0;
-  let outflow = 0;
-  for (const row of data as any[]) {
-    const kind = row.finance_categories?.kind;
-    if (kind === "income") income += row.amount;
-    else outflow += row.amount;
-  }
-  return income - outflow;
-}
-
 /**
  * Closes the current period, opens a new one starting now with the
  * leftover carried in as rollover_in. Returns the leftover amount.
  */
 export async function resetPeriod(): Promise<number | null> {
-  const current = await getCurrentPeriod();
-  if (!current) {
+  const summary = await getPeriodSummary();
+  if (!summary) {
     console.error("No active finance_period to reset.");
     return null;
   }
 
-  const leftover = await periodLeftover(current.id);
+  const leftover = summary.periodNet;
   const now = new Date().toISOString();
 
   const { error: closeError } = await supabaseAdmin
     .from("finance_periods")
     .update({ ended_at: now })
-    .eq("id", current.id);
+    .eq("id", summary.period.id);
 
   if (closeError) {
     console.error("Failed to close current finance_period:", closeError);
@@ -230,6 +209,10 @@ export interface PeriodSummary {
   accounts: FinanceAccount[];
   netWorth: number;
   debtTotal: number;
+  /** Income minus outflow for transactions dated today (user's timezone). */
+  todayNet: number;
+  /** Income minus outflow for the whole period so far -- what rollover_in would become if reset now. */
+  periodNet: number;
 }
 
 export async function getPeriodSummary(): Promise<PeriodSummary | null> {
@@ -242,7 +225,7 @@ export async function getPeriodSummary(): Promise<PeriodSummary | null> {
     getDebtTotal(),
     supabaseAdmin
       .from("finance_transactions")
-      .select("amount, category_id")
+      .select("amount, category_id, occurred_at")
       .eq("period_id", period.id),
   ]);
 
@@ -250,9 +233,27 @@ export async function getPeriodSummary(): Promise<PeriodSummary | null> {
     console.error("Failed to load transactions for period summary:", txnRes.error);
   }
 
+  const kindByCategory = new Map(categories.map((c) => [c.id, c.kind]));
+  const todayStart = startOfToday();
+
   const actualByCategory = new Map<string, number>();
+  let periodIncome = 0;
+  let periodOutflow = 0;
+  let todayIncome = 0;
+  let todayOutflow = 0;
+
   for (const t of txnRes.data ?? []) {
     actualByCategory.set(t.category_id, (actualByCategory.get(t.category_id) ?? 0) + t.amount);
+
+    const kind = kindByCategory.get(t.category_id);
+    const isToday = new Date(t.occurred_at) >= todayStart;
+    if (kind === "income") {
+      periodIncome += t.amount;
+      if (isToday) todayIncome += t.amount;
+    } else {
+      periodOutflow += t.amount;
+      if (isToday) todayOutflow += t.amount;
+    }
   }
 
   const categoriesByKind: Record<string, CategorySummary[]> = {};
@@ -277,6 +278,8 @@ export async function getPeriodSummary(): Promise<PeriodSummary | null> {
     accounts,
     netWorth: assetsTotal - debtTotal,
     debtTotal,
+    todayNet: todayIncome - todayOutflow,
+    periodNet: periodIncome - periodOutflow,
   };
 }
 

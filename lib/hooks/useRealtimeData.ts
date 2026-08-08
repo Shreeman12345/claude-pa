@@ -9,13 +9,23 @@ interface UseRealtimeDataOptions<T> {
   filter?: string;
   initialData: T;
   fetchData: () => Promise<T>;
+  /**
+   * Override how change notifications are received. Defaults to a direct
+   * Supabase Realtime postgres_changes subscription on `table` (requires an
+   * anon-SELECT policy on that table). Pass this for tables that
+   * deliberately stay RLS deny-all with no anon exception -- e.g. a
+   * server-side SSE proxy that subscribes via the service role and forwards
+   * a "something changed" ping to the browser. Receives a callback to fire
+   * on each change; must return a cleanup function.
+   */
+  subscribe?: (onChange: () => void) => () => void;
 }
 
 /**
- * Fetches initial data, keeps it in sync via a Realtime subscription (any
- * change on `table` triggers a fresh fetchData() call rather than patching
- * from the payload -- simpler and always reconciles with server truth), and
- * exposes mutate() for optimistic-update-then-write interactions.
+ * Fetches initial data, keeps it in sync via a change subscription (any
+ * change triggers a fresh fetchData() call rather than patching from the
+ * payload -- simpler and always reconciles with server truth), and exposes
+ * mutate() for optimistic-update-then-write interactions.
  *
  * React 18 StrictMode (dev only) mounts effects twice, which fires the
  * mount-time fetch twice -- the first is orphaned with no cleanup tied to
@@ -24,7 +34,7 @@ interface UseRealtimeDataOptions<T> {
  * late-arriving stale response can never stomp a newer optimistic update
  * regardless of resolution order.
  */
-export function useRealtimeData<T>({ table, filter, initialData, fetchData }: UseRealtimeDataOptions<T>) {
+export function useRealtimeData<T>({ table, filter, initialData, fetchData, subscribe }: UseRealtimeDataOptions<T>) {
   const [data, setData] = useState<T>(initialData);
   const fetchRef = useRef(fetchData);
   fetchRef.current = fetchData;
@@ -45,6 +55,10 @@ export function useRealtimeData<T>({ table, filter, initialData, fetchData }: Us
   }, [refetch]);
 
   useEffect(() => {
+    if (subscribe) {
+      return subscribe(() => refetch());
+    }
+
     const channel = supabaseBrowser
       .channel(filter ? `${table}:${filter}` : table)
       .on(
@@ -61,7 +75,7 @@ export function useRealtimeData<T>({ table, filter, initialData, fetchData }: Us
     return () => {
       supabaseBrowser.removeChannel(channel);
     };
-  }, [table, filter, refetch]);
+  }, [table, filter, refetch, subscribe]);
 
   const mutate = useCallback((optimisticUpdate: (prev: T) => T, write: () => Promise<T>) => {
     const id = ++requestIdRef.current;
